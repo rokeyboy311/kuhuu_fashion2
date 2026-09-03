@@ -13,8 +13,8 @@ class PaymentService {
 
   constructor() {
     this.razorpay = new Razorpay({
-      key_id: config.razorpay.keyId,
-      key_secret: config.razorpay.keySecret,
+      key_id: config.razorpay.keyId || 'rzp_test_placeholder',
+      key_secret: config.razorpay.keySecret || 'rzp_test_secret',
     });
   }
 
