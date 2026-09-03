@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+const isProd = import.meta.env.PROD;
+const DEFAULT_API_URL = isProd
+  ? 'https://kuhuu-fashion2.onrender.com/api/v1'
+  : 'http://localhost:5000/api/v1';
+
+export const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: false,
 });
@@ -34,7 +41,7 @@ api.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          `${API_BASE_URL}/auth/refresh`,
           { refreshToken }
         );
         const { accessToken, refreshToken: newRefresh } = data.data;

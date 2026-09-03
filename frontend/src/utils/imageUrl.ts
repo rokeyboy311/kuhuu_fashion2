@@ -2,7 +2,12 @@
  * Image URL helpers — all images are served from PostgreSQL via backend API
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const isProd = import.meta.env.PROD;
+const DEFAULT_API_URL = isProd
+  ? 'https://kuhuu-fashion2.onrender.com/api/v1'
+  : 'http://localhost:5000/api/v1';
+
+const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 export function getProductImageUrl(imageId: string): string {
   return `${API_URL}/images/${imageId}`;
