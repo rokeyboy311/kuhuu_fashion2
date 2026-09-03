@@ -59,7 +59,7 @@ export async function createOrder(req: AuthRequest, res: Response, next: NextFun
         quantity: item.quantity,
         price,
         total,
-        image: item.product.images[0]?.url || null,
+        image: item.product.images[0]?.id ? `/api/v1/images/${item.product.images[0].id}/thumb` : null,
       };
     });
 
@@ -73,8 +73,9 @@ export async function createOrder(req: AuthRequest, res: Response, next: NextFun
         where: {
           code: couponCode.toUpperCase(),
           isActive: true,
-          OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
-          OR: [{ maxUsage: null }, { usageCount: { lt: prisma.coupon.fields.maxUsage } }],
+          AND: [
+            { OR: [{ endDate: null }, { endDate: { gte: new Date() } }] },
+          ],
         },
       });
 
@@ -258,7 +259,7 @@ export async function updateOrderStatus(req: AuthRequest, res: Response, next: N
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { user: true },
+      include: { user: true, shipment: true },
     });
 
     if (!order) throw new NotFoundError('Order');

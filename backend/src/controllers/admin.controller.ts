@@ -65,13 +65,12 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
         where: { status: 'ACTIVE' },
         orderBy: { totalSold: 'desc' },
         take: 5,
-        include: { images: { where: { isPrimary: true }, take: 1 } },
         select: {
           id: true,
           name: true,
           totalSold: true,
           basePrice: true,
-          images: true,
+          images: { where: { isPrimary: true }, take: 1, select: { id: true, alt: true } },
         },
       }),
     ]);

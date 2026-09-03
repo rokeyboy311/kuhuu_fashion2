@@ -117,13 +117,13 @@ export async function getInstagramImageThumb(req: Request, res: Response, next: 
   try {
     const post = await prisma.instagramPost.findUnique({
       where: { id: req.params.id },
-      select: { thumbnail: true, mimeType: true },
+      select: { imageData: true, mimeType: true },
     });
 
     if (!post) throw new NotFoundError('Post');
 
     setImageHeaders(res, post.mimeType);
-    res.send(post.thumbnail);
+    res.send(post.imageData);
   } catch (error) {
     next(error);
   }
@@ -248,7 +248,6 @@ export async function uploadInstagramPost(req: Request, res: Response, next: Nex
       data: {
         instagramId: req.body.instagramId,
         imageData: processed.imageData,
-        thumbnail: processed.thumbnail,
         mimeType: processed.mimeType,
         link: req.body.link,
         caption: req.body.caption,
