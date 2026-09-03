@@ -1,330 +1,255 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import api from '@/services/api';
+import { SlidersHorizontal, X, Search, Sparkles } from 'lucide-react';
 import ProductCard from '@/components/ProductCard/ProductCard';
+import { PRODUCTS, CATEGORIES } from '@/data/productsData';
 
 const SORT_OPTIONS = [
-  { value: 'createdAt:desc', label: 'Newest' },
-  { value: 'totalSold:desc', label: 'Best Selling' },
-  { value: 'basePrice:asc', label: 'Price: Low → High' },
-  { value: 'basePrice:desc', label: 'Price: High → Low' },
-  { value: 'averageRating:desc', label: 'Top Rated' },
+  { value: 'featured', label: 'Featured & Viral' },
+  { value: 'newest', label: 'Newest Arrivals' },
+  { value: 'bestseller', label: 'Best Sellers' },
+  { value: 'price-low', label: 'Price: Low → High' },
+  { value: 'price-high', label: 'Price: High → Low' },
+  { value: 'rating', label: 'Customer Rating' },
 ];
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
 const PRICE_RANGES = [
-  { label: 'Under ₹500', min: 0, max: 500 },
-  { label: '₹500 – ₹1,000', min: 500, max: 1000 },
-  { label: '₹1,000 – ₹2,000', min: 1000, max: 2000 },
-  { label: '₹2,000 – ₹5,000', min: 2000, max: 5000 },
-  { label: 'Above ₹5,000', min: 5000, max: 999999 },
+  { label: 'All Prices', min: 0, max: 999999 },
+  { label: 'Under ₹5,000', min: 0, max: 5000 },
+  { label: '₹5,000 – ₹8,000', min: 5000, max: 8000 },
+  { label: '₹8,000 – ₹12,000', min: 8000, max: 12000 },
+  { label: 'Above ₹12,000', min: 12000, max: 999999 },
 ];
-
-type Product = {
-  id: string;
-  name: string;
-  slug: string;
-  images: Array<{ id: string; alt?: string; isPrimary: boolean }>;
-  variants: Array<{ id: string; price: number; compareAtPrice?: number; stock: number; size?: string; color?: string }>;
-  averageRating?: number;
-  reviewCount?: number;
-  isNew?: boolean;
-  isBestSeller?: boolean;
-  isFeatured?: boolean;
-};
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const search = searchParams.get('search') || '';
-  const category = searchParams.get('category') || '';
-  const sort = searchParams.get('sort') || 'createdAt:desc';
-  const size = searchParams.get('size') || '';
-  const minPrice = searchParams.get('minPrice') || '';
-  const maxPrice = searchParams.get('maxPrice') || '';
-  const isNew = searchParams.get('isNew') || '';
-  const page = parseInt(searchParams.get('page') || '1', 10);
+  const category = searchParams.get('category') || 'all';
+  const sort = searchParams.get('sort') || 'featured';
+  const priceIndex = parseInt(searchParams.get('price') || '0', 10);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['products', { search, category, sort, size, minPrice, maxPrice, isNew, page }],
-    queryFn: () => {
-      const params = new URLSearchParams({
-        ...(search && { search }),
-        ...(category && { category }),
-        ...(sort && { sort }),
-        ...(size && { size }),
-        ...(minPrice && { minPrice }),
-        ...(maxPrice && { maxPrice }),
-        ...(isNew && { isNew }),
-        page: String(page),
-        limit: '20',
-      });
-      return api.get(`/products?${params}`).then((r) => r.data);
-    },
-  });
-
-  const products: Product[] = data?.data?.products || data?.data || [];
-  const total: number = data?.meta?.total || 0;
-  const totalPages = data?.meta?.totalPages || 1;
+  const selectedPriceRange = PRICE_RANGES[priceIndex] || PRICE_RANGES[0];
 
   const updateParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
-    if (value) {
+    if (value && value !== 'all') {
       next.set(key, value);
     } else {
       next.delete(key);
     }
-    next.delete('page');
     setSearchParams(next);
   };
 
   const clearAllFilters = () => {
-    setSearchParams({ sort });
+    setSearchParams({});
   };
 
-  const hasFilters = !!(category || size || minPrice || maxPrice || isNew || search);
+  // Filter & Sort Logic
+  const filteredProducts = useMemo(() => {
+    return PRODUCTS.filter((product) => {
+      // Search
+      if (search) {
+        const query = search.toLowerCase();
+        const matchesName = product.name.toLowerCase().includes(query);
+        const matchesDesc = product.description.toLowerCase().includes(query);
+        const matchesCat = product.categoryName.toLowerCase().includes(query);
+        if (!matchesName && !matchesDesc && !matchesCat) return false;
+      }
+
+      // Category
+      if (category && category !== 'all') {
+        if (product.category !== category) return false;
+      }
+
+      // Price Range
+      if (product.basePrice < selectedPriceRange.min || product.basePrice > selectedPriceRange.max) {
+        return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      if (sort === 'price-low') return a.basePrice - b.basePrice;
+      if (sort === 'price-high') return b.basePrice - a.basePrice;
+      if (sort === 'rating') return b.rating - a.rating;
+      if (sort === 'newest') return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0);
+      if (sort === 'bestseller') return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
+      return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
+    });
+  }, [search, category, sort, selectedPriceRange]);
+
+  const hasActiveFilters = category !== 'all' || search !== '' || priceIndex !== 0;
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* Page Header */}
-      <div style={{ background: 'var(--color-surface-muted)', borderBottom: '1px solid var(--color-border)', padding: '2.5rem 0' }}>
-        <div className="container-site">
-          <h1
-            className="text-display"
-            style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase' }}
-          >
-            {search ? `"${search}"` : category ? category.replace(/-/g, ' ') : 'All Products'}
+    <div className="bg-[#FAF8F5] min-h-screen py-10">
+      {/* Header Banner */}
+      <div className="bg-[#0E0E0E] text-white py-14 mb-10 border-b border-[#C9A96E]/20 relative overflow-hidden">
+        <div className="container-site relative z-10 text-center">
+          <span className="text-xs uppercase tracking-widest text-[#C9A96E] font-medium block mb-2">
+            Surat Couture Atelier
+          </span>
+          <h1 className="font-serif text-3xl sm:text-5xl font-normal text-white mb-3">
+            {category !== 'all'
+              ? CATEGORIES.find((c) => c.slug === category)?.name || 'Collection'
+              : search
+              ? `Results for "${search}"`
+              : 'All Creations'}
           </h1>
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.375rem' }}>
-            {isLoading ? '...' : `${total} product${total !== 1 ? 's' : ''}`}
+          <p className="text-neutral-400 text-xs sm:text-sm max-w-lg mx-auto">
+            Handcrafted luxury partywear, statement drapes, and bespoke festive ensembles from Surat.
           </p>
         </div>
       </div>
 
-      <div className="container-site" style={{ padding: '2rem 0 4rem' }}>
-        {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="container-site">
+        {/* Top Control Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 mb-8 border-b border-[#EBE7DF]">
+          {/* Active Filters / Count */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
-              className="btn btn-ghost btn-sm"
               onClick={() => setFiltersOpen(!filtersOpen)}
-              id="filter-toggle-btn"
-              style={{ gap: '0.5rem' }}
+              className="lg:hidden flex items-center gap-2 px-4 py-2 bg-white border border-[#EBE7DF] rounded-lg text-xs font-semibold uppercase tracking-wider text-neutral-800"
             >
               <SlidersHorizontal size={14} />
-              Filters
-              {hasFilters && (
-                <span style={{ background: 'var(--color-brand)', color: '#fff', borderRadius: '999px', padding: '0 6px', fontSize: '0.6rem', lineHeight: '16px' }}>
-                  •
-                </span>
-              )}
+              Filters {hasActiveFilters && '(Active)'}
             </button>
-
-            {/* Active filter chips */}
-            {hasFilters && (
-              <button
-                onClick={clearAllFilters}
-                className="pill"
-                id="clear-all-filters"
-                style={{ fontSize: '0.65rem', color: 'var(--color-error)' }}
-              >
-                <X size={10} />
-                Clear All
-              </button>
-            )}
+            <span className="text-xs text-neutral-500 font-medium">
+              Showing <strong>{filteredProducts.length}</strong> creations
+            </span>
           </div>
 
-          {/* Sort */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Sort by:
-            </span>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={sort}
-                onChange={(e) => updateParam('sort', e.target.value)}
-                id="sort-select"
-                style={{
-                  appearance: 'none',
-                  padding: '0.4rem 2rem 0.4rem 0.75rem',
-                  border: '1px solid var(--color-border)',
-                  background: '#fff',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-muted)' }} />
-            </div>
+          {/* Sort Selector */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <label htmlFor="shop-sort" className="text-xs text-neutral-500 uppercase tracking-wider font-semibold whitespace-nowrap">
+              Sort By:
+            </label>
+            <select
+              id="shop-sort"
+              value={sort}
+              onChange={(e) => updateParam('sort', e.target.value)}
+              className="px-3 py-2 bg-white border border-[#EBE7DF] rounded-lg text-xs font-medium text-neutral-800 focus:outline-none focus:border-[#C9A96E]"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Filters row (collapsible) */}
-        {filtersOpen && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+          {/* Sidebar Filters */}
           <div
-            style={{
-              border: '1px solid var(--color-border)',
-              padding: '1.25rem',
-              marginBottom: '1.5rem',
-              background: '#fff',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '1.5rem',
-            }}
+            className={`fixed inset-y-0 left-0 z-50 w-80 bg-white p-6 shadow-2xl lg:shadow-none lg:static lg:w-auto lg:p-0 lg:bg-transparent lg:z-0 lg:block transition-transform duration-300 ${
+              filtersOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+            }`}
           >
-            {/* Size filter */}
-            <div>
-              <p className="label" style={{ marginBottom: '0.625rem' }}>Size</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                {SIZES.map((s) => (
-                  <button
-                    key={s}
-                    className={`size-btn ${size === s ? 'selected' : ''}`}
-                    onClick={() => updateParam('size', size === s ? '' : s)}
-                    id={`filter-size-${s}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center justify-between lg:hidden pb-4 mb-4 border-b border-neutral-200">
+              <h3 className="font-serif text-lg font-medium">Filters</h3>
+              <button onClick={() => setFiltersOpen(false)} aria-label="Close filters">
+                <X size={20} />
+              </button>
             </div>
 
-            {/* Price filter */}
-            <div>
-              <p className="label" style={{ marginBottom: '0.625rem' }}>Price</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                {PRICE_RANGES.map((r) => {
-                  const active = minPrice === String(r.min) && maxPrice === String(r.max);
-                  return (
+            <div className="bg-white rounded-xl border border-[#EBE7DF] p-6 space-y-6 shadow-sm">
+              {/* Filter Reset Button */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="w-full py-2 px-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <X size={13} />
+                  Clear All Filters
+                </button>
+              )}
+
+              {/* Categories */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-[#947A46] mb-3">Category</h4>
+                <div className="space-y-1.5">
+                  {CATEGORIES.map((cat) => (
                     <button
-                      key={r.label}
-                      onClick={() => {
-                        if (active) {
-                          updateParam('minPrice', '');
-                          updateParam('maxPrice', '');
-                        } else {
-                          const next = new URLSearchParams(searchParams);
-                          next.set('minPrice', String(r.min));
-                          next.set('maxPrice', String(r.max));
-                          next.delete('page');
-                          setSearchParams(next);
-                        }
-                      }}
-                      id={`filter-price-${r.label}`}
-                      style={{
-                        padding: '0.375rem 0.75rem',
-                        border: '1px solid',
-                        borderColor: active ? 'var(--color-brand)' : 'var(--color-border)',
-                        background: active ? 'var(--color-brand)' : 'transparent',
-                        color: active ? '#fff' : 'var(--color-text-secondary)',
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
+                      key={cat.slug}
+                      onClick={() => updateParam('category', cat.slug)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                        category === cat.slug
+                          ? 'bg-[#0E0E0E] text-[#C9A96E] font-semibold'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
                     >
-                      {r.label}
+                      <span>{cat.name}</span>
+                      <span className="text-[11px] opacity-60">({cat.count})</span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Other filters */}
-            <div>
-              <p className="label" style={{ marginBottom: '0.625rem' }}>More</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {[
-                  { key: 'isNew', value: 'true', label: 'New Arrivals' },
-                  { key: 'isBestSeller', value: 'true', label: 'Best Sellers' },
-                  { key: 'inStock', value: 'true', label: 'In Stock Only' },
-                ].map((f) => (
-                  <label
-                    key={f.key}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+              {/* Price Ranges */}
+              <div className="pt-4 border-t border-neutral-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-[#947A46] mb-3">Price Range</h4>
+                <div className="space-y-1.5">
+                  {PRICE_RANGES.map((rng, idx) => (
+                    <button
+                      key={rng.label}
+                      onClick={() => updateParam('price', String(idx))}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                        priceIndex === idx
+                          ? 'bg-[#0E0E0E] text-[#C9A96E] font-semibold'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <span>{rng.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Instagram Exclusive Highlight Banner */}
+              <div className="pt-4 border-t border-neutral-100">
+                <div className="p-4 rounded-lg bg-gradient-to-br from-neutral-900 to-black text-white text-center">
+                  <Sparkles size={16} className="text-[#C9A96E] mx-auto mb-2" />
+                  <p className="font-serif text-sm text-[#C9A96E] mb-1">Custom Fit Guarantee</p>
+                  <p className="text-[11px] text-neutral-400 mb-3">All designs can be customized to your exact body measurements.</p>
+                  <a
+                    href="https://wa.me/919879012345?text=Hello%20Kuhuu%20Fashion%2C%20I%20want%20to%20know%20about%20custom%20stitching%20services"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block py-2 bg-[#C9A96E] text-black text-[11px] font-bold uppercase tracking-wider rounded"
                   >
-                    <input
-                      type="checkbox"
-                      checked={searchParams.get(f.key) === f.value}
-                      onChange={(e) => updateParam(f.key, e.target.checked ? f.value : '')}
-                      id={`filter-${f.key}`}
-                    />
-                    {f.label}
-                  </label>
-                ))}
+                    Chat With Stylist
+                  </a>
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Products grid */}
-        {isLoading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i}>
-                <div className="skeleton" style={{ aspectRatio: '3/4', marginBottom: '0.75rem' }} />
-                <div className="skeleton" style={{ height: '14px', width: '70%', marginBottom: '0.5rem' }} />
-                <div className="skeleton" style={{ height: '14px', width: '40%' }} />
+          {/* Product Grid */}
+          <div className="lg:col-span-3">
+            {filteredProducts.length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#EBE7DF] p-12 text-center">
+                <Search size={40} className="text-neutral-300 mx-auto mb-4" />
+                <h3 className="font-serif text-xl text-neutral-900 mb-2">No Matching Creations Found</h3>
+                <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-6">
+                  We could not find any outfits matching your filter criteria. Try clearing some filters.
+                </p>
+                <button
+                  onClick={clearAllFilters}
+                  className="px-6 py-2.5 bg-neutral-900 text-white text-xs font-semibold uppercase tracking-wider rounded-lg"
+                >
+                  View All Products
+                </button>
               </div>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '6rem 0' }}>
-            <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--color-text-muted)' }}>
-              No products found
-            </p>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
-              Try adjusting your filters or search term
-            </p>
-            <button className="btn btn-outline" onClick={clearAllFilters} id="no-results-clear">
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-              {products.map((product) => (
-                <ProductCard key={product.id} {...product} />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '3rem' }}>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => {
-                      const next = new URLSearchParams(searchParams);
-                      next.set('page', String(p));
-                      setSearchParams(next);
-                      window.scrollTo(0, 0);
-                    }}
-                    id={`page-btn-${p}`}
-                    style={{
-                      width: '2.25rem',
-                      height: '2.25rem',
-                      border: '1px solid',
-                      borderColor: p === page ? 'var(--color-brand)' : 'var(--color-border)',
-                      background: p === page ? 'var(--color-brand)' : 'transparent',
-                      color: p === page ? '#fff' : 'var(--color-text-secondary)',
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {p}
-                  </button>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} {...product} />
                 ))}
               </div>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );

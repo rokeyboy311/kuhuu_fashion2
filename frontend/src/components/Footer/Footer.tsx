@@ -1,89 +1,47 @@
 import { Link } from 'react-router-dom';
-import { MessageCircle, Mail, Phone } from 'lucide-react';
-
-function InstagramIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-    </svg>
-  );
-}
+import { MessageCircle, Mail, Phone, MapPin, Clock } from 'lucide-react';
+import InstagramIcon from '@/components/Icons/InstagramIcon';
+import { STORE_INFO, CATEGORIES } from '@/data/productsData';
 
 const SHOP_LINKS = [
-  { label: 'New Arrivals', to: '/shop?isNew=true' },
-  { label: 'Dresses', to: '/shop?category=dresses' },
-  { label: 'Tops', to: '/shop?category=tops' },
+  { label: 'All Collections', to: '/shop' },
+  { label: 'Festive Edit', to: '/shop?category=festive-edit' },
   { label: 'Ethnic Wear', to: '/shop?category=ethnic-wear' },
-  { label: 'Western Wear', to: '/shop?category=western-wear' },
-  { label: 'Sale', to: '/shop?category=sale' },
+  { label: 'Indo-Western', to: '/shop?category=indo-western' },
+  { label: 'Dresses & Drapes', to: '/shop?category=dresses' },
 ];
 
 const HELP_LINKS = [
-  { label: 'Contact Us', to: '/contact' },
-  { label: 'FAQ', to: '/faq' },
-  { label: 'Shipping Policy', to: '/shipping-policy' },
-  { label: 'Return Policy', to: '/return-policy' },
-  { label: 'Refund Policy', to: '/refund-policy' },
-  { label: 'Track Order', to: '/account/orders' },
-];
-
-const LEGAL_LINKS = [
-  { label: 'Privacy Policy', to: '/privacy-policy' },
-  { label: 'Terms & Conditions', to: '/terms' },
-  { label: 'Cancellation Policy', to: '/cancellation-policy' },
+  { label: 'My Account & Orders', to: '/account' },
+  { label: 'Bespoke Sizing Guide', to: '/account' },
+  { label: 'Pan-India Delivery Policy', to: '/shop' },
+  { label: 'Alterations & Exchanges', to: '/account' },
 ];
 
 export default function Footer() {
   return (
-    <footer style={{ background: '#0f0f0f', color: 'rgba(255,255,255,0.8)' }}>
-      {/* Newsletter */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '3rem 0' }}>
-        <div className="container-site text-center">
-          <h2
-            className="text-display"
-            style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', letterSpacing: '0.06em', marginBottom: '0.75rem', color: '#fff', fontWeight: 400 }}
-          >
-            Join the Kuhuu Community
+    <footer className="bg-[#0A0A0A] text-neutral-400 border-t border-[#C9A96E]/20 text-xs">
+      {/* Newsletter Strip */}
+      <div className="border-b border-neutral-900 py-12 bg-gradient-to-b from-[#0E0E0E] to-[#0A0A0A]">
+        <div className="container-site text-center max-w-xl mx-auto">
+          <span className="text-[11px] uppercase tracking-widest text-[#C9A96E] font-bold block mb-2">
+            The Couture Circle
+          </span>
+          <h2 className="font-serif text-2xl sm:text-3xl text-white font-normal mb-2">
+            Join the Kuhuu Fashion Guild
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
-            Be the first to know about new collections, exclusive offers, and fashion tips.
+          <p className="text-neutral-400 text-xs mb-6">
+            Receive private preview invites for new festive drops, runway reels, and bespoke bridal trunk shows.
           </p>
-          <form
-            className="flex gap-2 max-w-md mx-auto"
-            onSubmit={(e) => e.preventDefault()}
-          >
+          <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
             <input
               type="email"
-              placeholder="Your email address"
-              id="newsletter-email"
-              style={{
-                flex: 1,
-                padding: '0.75rem 1rem',
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff',
-                fontSize: '0.875rem',
-                outline: 'none',
-              }}
-              className="placeholder:text-white/30"
+              placeholder="Enter your email"
+              className="flex-1 px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-xs focus:outline-none focus:border-[#C9A96E]"
             />
             <button
               type="submit"
-              id="newsletter-submit"
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#fff',
-                color: '#000',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                whiteSpace: 'nowrap',
-                border: 'none',
-                cursor: 'pointer',
-              }}
+              className="px-6 py-3 bg-[#C9A96E] hover:bg-[#b5955b] text-black font-semibold text-xs tracking-widest uppercase rounded-lg transition-colors"
             >
               Subscribe
             </button>
@@ -91,58 +49,51 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Main footer */}
-      <div className="container-site" style={{ padding: '3rem 0 2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '2rem' }}>
-          {/* Brand column */}
-          <div>
-            <div
-              className="text-display"
-              style={{ fontSize: '1.5rem', letterSpacing: '0.3em', textTransform: 'uppercase', color: '#fff', marginBottom: '1rem', fontWeight: 400 }}
-            >
-              Kuhuu
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, marginBottom: '1.25rem' }}>
-              Premium Indian fashion, inspired by everyday elegance. Discover curated styles that celebrate you.
+      {/* Main Grid */}
+      <div className="container-site py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+          {/* Brand Info */}
+          <div className="lg:col-span-2 space-y-4">
+            <Link to="/" className="inline-block">
+              <span className="font-serif text-2xl font-bold tracking-wider text-white">
+                KUHUU <span className="text-[#C9A96E] font-normal italic">Fashion</span>
+              </span>
+            </Link>
+            <p className="text-neutral-400 leading-relaxed max-w-sm">
+              Couture crafted in Surat, India. Celebrating intricate Kundan handwork, heavy sequins, cascading ruffles, and timeless Indian drapery.
             </p>
-            {/* Social */}
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+
+            <div className="pt-2 flex items-center gap-3">
               <a
-                href="https://instagram.com/kuhuu_fashion"
+                href={STORE_INFO.instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                id="footer-instagram"
-                style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', color: '#fff' }}
-                aria-label="Instagram"
+                className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-[#DD2A7B] text-white flex items-center justify-center transition-colors shadow-md"
+                title="Follow on Instagram"
               >
-                <InstagramIcon size={14} />
+                <InstagramIcon size={17} />
               </a>
               <a
-                href="https://wa.me/91XXXXXXXXXX"
+                href={STORE_INFO.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                id="footer-whatsapp"
-                style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', color: '#fff' }}
-                aria-label="WhatsApp"
+                className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-[#25D366] text-white flex items-center justify-center transition-colors shadow-md"
+                title="WhatsApp Stylist"
               >
-                <MessageCircle size={14} />
+                <MessageCircle size={17} />
               </a>
             </div>
           </div>
 
-          {/* Shop */}
+          {/* Collections */}
           <div>
-            <h4 style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>
-              Shop
+            <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-4">
+              Collections
             </h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <ul className="space-y-2.5">
               {SHOP_LINKS.map((l) => (
                 <li key={l.to}>
-                  <Link
-                    to={l.to}
-                    style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', transition: 'color 0.2s' }}
-                    className="hover:text-white"
-                  >
+                  <Link to={l.to} className="hover:text-[#C9A96E] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -150,19 +101,15 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Help */}
+          {/* Client Care */}
           <div>
-            <h4 style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>
-              Help
+            <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-4">
+              Client Care
             </h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <ul className="space-y-2.5">
               {HELP_LINKS.map((l) => (
-                <li key={l.to}>
-                  <Link
-                    to={l.to}
-                    style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', transition: 'color 0.2s' }}
-                    className="hover:text-white"
-                  >
+                <li key={l.label}>
+                  <Link to={l.to} className="hover:text-[#C9A96E] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -170,89 +117,40 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Surat Flagship Boutique */}
           <div>
-            <h4 style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>
-              Contact
+            <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-4">
+              Surat Flagship
             </h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                <Mail size={14} style={{ marginTop: '2px', opacity: 0.5, flexShrink: 0 }} />
-                <a
-                  href="mailto:support@kuhuufashion.com"
-                  id="footer-email"
-                  style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}
-                  className="hover:text-white"
-                >
-                  support@kuhuufashion.com
-                </a>
-              </li>
-              <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                <Phone size={14} style={{ marginTop: '2px', opacity: 0.5, flexShrink: 0 }} />
-                <a
-                  href="tel:+91XXXXXXXXXX"
-                  id="footer-phone"
-                  style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}
-                  className="hover:text-white"
-                >
-                  +91 XXXX XXXXXX
-                </a>
-              </li>
-            </ul>
-            <div style={{ marginTop: '1.25rem', padding: '0.875rem', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
-              <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Support Hours
-              </p>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
-                Mon–Sat, 10am – 7pm IST
-              </p>
+            <div className="space-y-3 text-neutral-400">
+              <div className="flex items-start gap-2">
+                <MapPin size={15} className="text-[#C9A96E] shrink-0 mt-0.5" />
+                <span className="leading-snug">{STORE_INFO.address}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Clock size={15} className="text-[#C9A96E] shrink-0 mt-0.5" />
+                <span className="leading-snug">Mon–Sat: 9 AM–8 PM<br />Sun: 9 AM–3 PM</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone size={15} className="text-[#C9A96E] shrink-0" />
+                <span>{STORE_INFO.phone}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom bar */}
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '1.25rem 0' }}>
-        <div className="container-site" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>
-            © {new Date().getFullYear()} Kuhuu Fashion. All rights reserved.
-          </p>
-          <div style={{ display: 'flex', gap: '1.25rem' }}>
-            {LEGAL_LINKS.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', transition: 'color 0.2s' }}
-                className="hover:text-white/60"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-          {/* Payment icons text */}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Payments:
-            </span>
-            {['UPI', 'Visa', 'Mastercard', 'Razorpay', 'COD'].map((p) => (
-              <span
-                key={p}
-                style={{
-                  padding: '2px 6px',
-                  background: 'rgba(255,255,255,0.08)',
-                  borderRadius: '2px',
-                  fontSize: '0.6rem',
-                  color: 'rgba(255,255,255,0.4)',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {p}
-              </span>
-            ))}
+        {/* Bottom Strip */}
+        <div className="mt-14 pt-8 border-t border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-neutral-500">
+          <p>© {new Date().getFullYear()} Kuhuu Fashion. All rights reserved. Handcrafted in Surat, Gujarat.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/shop" className="hover:text-neutral-300">Privacy Policy</Link>
+            <span>•</span>
+            <Link to="/shop" className="hover:text-neutral-300">Terms of Service</Link>
+            <span>•</span>
+            <Link to="/shop" className="hover:text-neutral-300">Shipping & Returns</Link>
           </div>
         </div>
       </div>
     </footer>
   );
 }
-

@@ -1,521 +1,439 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Heart, ShoppingBag, Share2, Star, ChevronDown, ChevronRight, Truck, RotateCcw, Shield } from 'lucide-react';
+import { Heart, ShoppingBag, Share2, Star, ChevronRight, Truck, RotateCcw, ShieldCheck, Scissors, MessageCircle, Check, Sparkles } from 'lucide-react';
+import InstagramIcon from '@/components/Icons/InstagramIcon';
 import api from '@/services/api';
-import { getProductImageUrl, getProductThumbnailUrl, PLACEHOLDER_IMAGE } from '@/utils/imageUrl';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
-import { useAuthStore } from '@/store/authStore';
-import { useNavigate } from 'react-router-dom';
 import ProductCard from '@/components/ProductCard/ProductCard';
+import { getProductBySlug, PRODUCTS, generateWhatsAppOrderUrl, STORE_INFO } from '@/data/productsData';
 import toast from 'react-hot-toast';
-
-type Variant = {
-  id: string;
-  sku: string;
-  size?: string;
-  color?: string;
-  colorHex?: string;
-  price: number;
-  compareAtPrice?: number;
-  stock: number;
-};
-
-type ProductImage = {
-  id: string;
-  alt?: string;
-  isPrimary: boolean;
-  width: number;
-  height: number;
-};
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
   const addToCart = useCartStore((s) => s.addItem);
   const isWishlisted = useWishlistStore((s) => s.isWishlisted);
   const toggleWishlist = useWishlistStore((s) => s.toggle);
 
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [activeImageId, setActiveImageId] = useState<string | null>(null);
-  const [qty, setQty] = useState(1);
-  const [addingToCart, setAddingToCart] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [expandedSection, setExpandedSection] = useState<string | null>('description');
+  // Fallback / Standalone Product Data
+  const localProduct = slug ? getProductBySlug(slug) : undefined;
 
-  const { data, isLoading } = useQuery({
+  // Optional API query if backend is active
+  const { data: apiData } = useQuery({
     queryKey: ['product', slug],
     queryFn: () => api.get(`/products/${slug}`).then((r) => r.data.data),
     enabled: !!slug,
+    retry: false,
   });
 
-  const { data: relatedData } = useQuery({
-    queryKey: ['related', slug],
-    queryFn: () => api.get(`/products/${slug}/related`).then((r) => r.data.data),
-    enabled: !!slug,
-  });
+  const product: any = localProduct || (apiData ? {
+    id: apiData.id,
+    name: apiData.name,
+    slug: apiData.slug,
+    category: apiData.category?.slug || 'festive-edit',
+    categoryName: apiData.category?.name || 'Festive Edit',
+    basePrice: apiData.variants?.[0]?.price || 4999,
+    compareAtPrice: apiData.variants?.[0]?.compareAtPrice || 6999,
+    image: apiData.images?.[0]?.id ? `/api/v1/images/${apiData.images[0].id}/image` : '/assets/images/black_kundan_gown.jpg',
+    images: (apiData.images || []).map((img: { id: string }) => `/api/v1/images/${img.id}/image`),
+    description: apiData.description,
+    shortDesc: apiData.shortDesc || '',
+    details: ['Premium Handcrafted Fabric', 'Dry Clean Only', 'Handcrafted in Surat, Gujarat'],
+    care: 'Dry clean only',
+    isFeatured: apiData.isFeatured,
+    isBestSeller: apiData.isBestSeller,
+    isNew: apiData.isNew,
+    rating: apiData.averageRating || 4.9,
+    reviewCount: apiData.reviewCount || 12,
+    stock: 5,
+    sizes: ['XS', 'S', 'M', 'L', 'XL', 'Custom Stitched'],
+    colors: [{ name: 'Classic', hex: '#111' }],
+  } : undefined);
 
-  if (isLoading) {
+  const [selectedSize, setSelectedSize] = useState<string>(product?.sizes?.[0] || 'M');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [activeTab, setActiveTab] = useState<'details' | 'shipping' | 'reviews'>('details');
+
+  if (!product) {
     return (
-      <div className="container-site" style={{ padding: '3rem 0' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
-          <div className="skeleton" style={{ aspectRatio: '3/4' }} />
-          <div>
-            <div className="skeleton" style={{ height: '2rem', width: '60%', marginBottom: '1rem' }} />
-            <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: '2rem' }} />
-            <div className="skeleton" style={{ height: '120px', marginBottom: '1.5rem' }} />
-            <div className="skeleton" style={{ height: '3rem' }} />
-          </div>
-        </div>
+      <div className="container-site py-24 text-center">
+        <h2 className="font-serif text-2xl text-neutral-900 mb-2">Creations Not Found</h2>
+        <p className="text-xs text-neutral-500 mb-6">The design you are looking for is currently unavailable or has been archived.</p>
+        <Link to="/shop" className="px-6 py-2.5 bg-neutral-900 text-white text-xs uppercase tracking-wider font-semibold rounded-lg">
+          Browse All Collections
+        </Link>
       </div>
     );
   }
 
-  if (!data) {
-    return (
-      <div style={{ textAlign: 'center', padding: '8rem 1rem' }}>
-        <h2>Product not found</h2>
-        <Link to="/shop" className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Back to Shop</Link>
-      </div>
-    );
-  }
+  const imagesList = product.images.length > 0 ? product.images : [product.image];
+  const activeImage = imagesList[activeImageIndex] || product.image;
 
-  const product = data;
-  const images: ProductImage[] = product.images || [];
-  const variants: Variant[] = product.variants || [];
-
-  // Distinct sizes and colors
-  const sizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[];
-  const colors = [...new Map(variants.filter((v) => v.color).map((v) => [v.color, v])).values()];
-
-  // Find the selected variant
-  const selectedVariant = variants.find(
-    (v) => (!selectedSize || v.size === selectedSize) && (!selectedColor || v.color === selectedColor)
-  ) || variants[0];
-
-  const currentPrice = selectedVariant?.price || 0;
-  const comparePrice = selectedVariant?.compareAtPrice || 0;
-  const hasDiscount = comparePrice > currentPrice;
-  const discountPct = hasDiscount ? Math.round(((comparePrice - currentPrice) / comparePrice) * 100) : 0;
-  const inStock = (selectedVariant?.stock || 0) > 0;
-  const mainImageId = activeImageId || images[0]?.id;
+  const currentPrice = product.basePrice;
+  const originalPrice = product.compareAtPrice;
+  const hasDiscount = originalPrice > currentPrice;
+  const discountPct = hasDiscount ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
   const wishlisted = isWishlisted(product.id);
 
-  const handleAddToCart = async () => {
-    if (!isAuthenticated) {
-      navigate(`/login?redirect=/product/${slug}`);
-      return;
-    }
-    if (sizes.length > 0 && !selectedSize) {
-      toast.error('Please select a size');
-      return;
-    }
-    if (!selectedVariant) return;
-
-    setAddingToCart(true);
-    try {
-      await addToCart(product.id, selectedVariant.id, qty);
-    } finally {
-      setAddingToCart(false);
-    }
+  const handleAddToCart = () => {
+    addToCart(product.id, `var-${selectedSize}`, qty);
+    toast.success(`${product.name} added to your bag!`);
   };
 
-  const handleShare = async () => {
+  const handleBuyNow = () => {
+    addToCart(product.id, `var-${selectedSize}`, qty);
+    navigate('/checkout');
+  };
+
+  const handleWhatsAppOrder = () => {
+    window.open(generateWhatsAppOrderUrl(product.name, selectedSize, currentPrice), '_blank');
+  };
+
+  const handleShare = () => {
     if (navigator.share) {
-      await navigator.share({ title: product.name, url: window.location.href });
+      navigator.share({
+        title: product.name,
+        text: product.shortDesc,
+        url: window.location.href,
+      }).catch(() => {});
     } else {
       navigator.clipboard.writeText(window.location.href);
-      toast.success('Link copied to clipboard!');
+      toast.success('Product link copied to clipboard!');
     }
   };
 
-  const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
-
-  const relatedProducts = relatedData?.products || relatedData || [];
+  const relatedProducts = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (
-    <>
-      <div className="container-site" style={{ padding: '2rem 0 4rem' }}>
-        {/* Breadcrumb */}
-        <nav className="breadcrumb" style={{ marginBottom: '2rem' }}>
-          <Link to="/">Home</Link>
-          <span className="sep">/</span>
-          <Link to="/shop">Shop</Link>
-          {product.category && (
-            <>
-              <span className="sep">/</span>
-              <Link to={`/shop?category=${product.category.slug}`}>{product.category.name}</Link>
-            </>
-          )}
-          <span className="sep">/</span>
-          <span style={{ color: 'var(--color-text-primary)' }}>{product.name}</span>
+    <div className="bg-[#FAF8F5] min-h-screen py-8">
+      <div className="container-site">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-xs text-neutral-500 mb-8 overflow-x-auto whitespace-nowrap">
+          <Link to="/" className="hover:text-neutral-900">Home</Link>
+          <ChevronRight size={12} />
+          <Link to="/shop" className="hover:text-neutral-900">Collections</Link>
+          <ChevronRight size={12} />
+          <Link to={`/shop?category=${product.category}`} className="hover:text-neutral-900">{product.categoryName}</Link>
+          <ChevronRight size={12} />
+          <span className="text-neutral-900 font-medium truncate max-w-xs">{product.name}</span>
         </nav>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '4rem', alignItems: 'start' }}>
-          {/* ── Images ── */}
-          <div>
-            {/* Main image */}
-            <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--color-surface-muted)', marginBottom: '0.75rem' }}>
+        {/* Product Details Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          {/* Gallery Column */}
+          <div className="space-y-4">
+            {/* Primary Main Image */}
+            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-black border border-[#EBE7DF] shadow-lg">
               <img
-                src={mainImageId ? getProductImageUrl(mainImageId) : PLACEHOLDER_IMAGE}
+                src={activeImage}
                 alt={product.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                id="product-main-image"
+                className="w-full h-full object-cover transition-all duration-500"
               />
+
+              {/* Badges */}
+              <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+                {product.isNew && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-[#0E0E0E] text-[#C9A96E] border border-[#C9A96E]/30">
+                    New Arrival
+                  </span>
+                )}
+                {product.isBestSeller && !product.isNew && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-[#C9A96E] text-[#0E0E0E]">
+                    Bestseller
+                  </span>
+                )}
+                {hasDiscount && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-red-600 text-white">
+                    {discountPct}% Off
+                  </span>
+                )}
+              </div>
+
+              {/* Wishlist Button */}
+              <button
+                onClick={() => toggleWishlist(product.id)}
+                aria-label="Wishlist"
+                className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform ${
+                  wishlisted ? 'bg-red-500 text-white scale-110' : 'bg-white/90 text-neutral-800 hover:bg-white'
+                }`}
+              >
+                <Heart size={18} fill={wishlisted ? 'currentColor' : 'none'} />
+              </button>
             </div>
 
-            {/* Thumbnails */}
-            {images.length > 1 && (
-              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto' }} className="no-scrollbar">
-                {images.map((img) => (
+            {/* Thumbnail Row if multiple images */}
+            {imagesList.length > 1 && (
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                {imagesList.map((img: string, idx: number) => (
                   <button
-                    key={img.id}
-                    onClick={() => setActiveImageId(img.id)}
-                    id={`thumb-${img.id}`}
-                    style={{
-                      flexShrink: 0,
-                      width: '64px',
-                      height: '80px',
-                      overflow: 'hidden',
-                      border: '2px solid',
-                      borderColor: activeImageId === img.id ? 'var(--color-brand)' : 'transparent',
-                      cursor: 'pointer',
-                      background: 'var(--color-surface-muted)',
-                    }}
+                    key={idx}
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`w-20 aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
+                      activeImageIndex === idx ? 'border-[#C9A96E] shadow-md scale-105' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
                   >
-                    <img
-                      src={getProductThumbnailUrl(img.id)}
-                      alt={img.alt || ''}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                    <img src={img} alt="" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* ── Product Info ── */}
-          <div style={{ position: 'sticky', top: '5rem' }}>
-            {/* Tags */}
-            <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.875rem' }}>
-              {product.isNew && <span className="badge badge-new">New</span>}
-              {product.isBestSeller && <span className="badge badge-bestseller">Best Seller</span>}
-              {hasDiscount && <span className="badge badge-sale">{discountPct}% OFF</span>}
-            </div>
+          {/* Details & Actions Column */}
+          <div className="space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#947A46]">
+                  {product.categoryName} • Surat Atelier
+                </span>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-900 transition-colors"
+                >
+                  <Share2 size={14} />
+                  <span>Share</span>
+                </button>
+              </div>
 
-            {/* Name */}
-            <h1
-              className="text-display"
-              style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 400, letterSpacing: '0.03em', marginBottom: '0.5rem', lineHeight: 1.2 }}
-              id="product-name"
-            >
-              {product.name}
-            </h1>
+              <h1 className="font-serif text-2xl sm:text-4xl text-neutral-900 font-normal leading-snug">
+                {product.name}
+              </h1>
 
-            {/* Brand */}
-            {product.brand && (
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                by {product.brand}
-              </p>
-            )}
-
-            {/* Rating */}
-            {product.reviewCount > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <div className="stars">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={14}
-                      style={{ fill: s <= Math.round(product.averageRating || 0) ? '#c9a96e' : 'none', stroke: '#c9a96e' }}
-                    />
+              {/* Rating */}
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex items-center text-amber-500">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={15} fill={i < Math.floor(product.rating) ? 'currentColor' : 'none'} />
                   ))}
                 </div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  {product.averageRating?.toFixed(1)} ({product.reviewCount} reviews)
+                <span className="text-xs font-semibold text-neutral-800">{product.rating.toFixed(1)}</span>
+                <span className="text-xs text-neutral-400">({product.reviewCount} verified Surat & online reviews)</span>
+              </div>
+            </div>
+
+            {/* Price Box */}
+            <div className="p-5 rounded-xl bg-white border border-[#EBE7DF] flex items-baseline justify-between shadow-sm">
+              <div className="flex items-baseline gap-3">
+                <span className="text-2xl sm:text-3xl font-bold text-neutral-900">
+                  ₹{currentPrice.toLocaleString('en-IN')}
+                </span>
+                {hasDiscount && (
+                  <span className="text-base text-neutral-400 line-through">
+                    ₹{originalPrice.toLocaleString('en-IN')}
+                  </span>
+                )}
+                {hasDiscount && (
+                  <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                    Save ₹{(originalPrice - currentPrice).toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-neutral-500 font-medium">Inclusive of all taxes</span>
+            </div>
+
+            {/* Instagram Viral Badge if connected to Instagram Reel */}
+            {product.instagramUrl && (
+              <div className="p-4 rounded-xl bg-[#0E0E0E] text-white flex items-center justify-between border border-[#C9A96E]/40 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shrink-0">
+                    <InstagramIcon size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#C9A96E] uppercase font-bold tracking-wider block">Featured on Instagram</span>
+                    <p className="text-xs text-neutral-300 line-clamp-1">{product.instagramCaption}</p>
+                  </div>
+                </div>
+                <a
+                  href={product.instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-[#C9A96E] hover:underline uppercase tracking-wider whitespace-nowrap ml-4"
+                >
+                  View Reel →
+                </a>
+              </div>
+            )}
+
+            {/* Size Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-900">
+                  Select Size: <strong className="text-[#947A46]">{selectedSize}</strong>
+                </span>
+                <span className="text-[11px] text-neutral-500 underline cursor-pointer">
+                  Size Guide & Measurements
                 </span>
               </div>
-            )}
 
-            {/* Price */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '1.75rem' }}>
-              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text-primary)' }} id="product-price">
-                ₹{currentPrice.toLocaleString('en-IN')}
-              </span>
-              {hasDiscount && (
-                <>
-                  <span style={{ fontSize: '1.1rem', textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>
-                    ₹{comparePrice.toLocaleString('en-IN')}
-                  </span>
-                  <span style={{ fontSize: '0.875rem', color: 'var(--color-error)', fontWeight: 600 }}>
-                    Save {discountPct}%
-                  </span>
-                </>
+              <div className="flex flex-wrap gap-2.5">
+                {product.sizes.map((s: string) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSelectedSize(s)}
+                    className={`px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all border ${
+                      selectedSize === s
+                        ? 'bg-[#0E0E0E] text-[#C9A96E] border-[#0E0E0E] shadow-md scale-105'
+                        : 'bg-white text-neutral-700 border-[#EBE7DF] hover:border-neutral-400'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              {selectedSize === 'Custom Stitched' && (
+                <p className="text-[11px] text-[#947A46] mt-2 flex items-center gap-1.5 font-medium">
+                  <Scissors size={13} />
+                  Our Surat atelier master tailor will WhatsApp you for exact measurements after checkout!
+                </p>
               )}
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '-1.5rem', marginBottom: '1.5rem' }}>
-              Inclusive of all taxes
-            </p>
 
-            {/* Color selector */}
-            {colors.length > 0 && (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <p className="label">Color: <span style={{ textTransform: 'none', fontWeight: 400 }}>{selectedColor || 'Select'}</span></p>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                  {colors.map((v) => (
-                    <button
-                      key={v.color}
-                      className={`color-swatch ${selectedColor === v.color ? 'selected' : ''}`}
-                      style={{ background: v.colorHex || '#ccc' }}
-                      onClick={() => setSelectedColor(v.color || null)}
-                      title={v.color}
-                      id={`color-${v.color}`}
-                      aria-label={`Color: ${v.color}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Size selector */}
-            {sizes.length > 0 && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-                  <p className="label" style={{ marginBottom: 0 }}>
-                    Size: <span style={{ textTransform: 'none', fontWeight: 400 }}>{selectedSize || 'Select'}</span>
-                  </p>
-                  <button
-                    style={{ fontSize: '0.7rem', textDecoration: 'underline', color: 'var(--color-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    id="size-guide-btn"
-                  >
-                    Size Guide
-                  </button>
-                </div>
-                <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-                  {sizes.map((s) => {
-                    const v = variants.find((va) => va.size === s && (!selectedColor || va.color === selectedColor));
-                    const oos = !v || v.stock === 0;
-                    return (
-                      <button
-                        key={s}
-                        className={`size-btn ${selectedSize === s ? 'selected' : ''} ${oos ? 'out-of-stock' : ''}`}
-                        onClick={() => !oos && setSelectedSize(selectedSize === s ? null : s)}
-                        id={`size-${s}`}
-                        disabled={oos}
-                        aria-label={`Size ${s}${oos ? ' (out of stock)' : ''}`}
-                      >
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Stock info */}
-            {selectedVariant && (
-              <p style={{ fontSize: '0.75rem', marginBottom: '1.25rem' }}>
-                {inStock ? (
-                  <span style={{ color: 'var(--color-success)', fontWeight: 500 }}>
-                    ✓ In Stock
-                    {selectedVariant.stock <= 10 && selectedVariant.stock > 0 && (
-                      <span style={{ color: 'var(--color-warning)', marginLeft: '0.5rem' }}>
-                        • Only {selectedVariant.stock} left
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span style={{ color: 'var(--color-error)', fontWeight: 500 }}>✗ Out of Stock</span>
-                )}
-              </p>
-            )}
-
-            {/* Quantity + Add to Cart */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div className="qty-stepper" id="quantity-stepper">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} id="qty-minus">−</button>
-                <input
-                  type="number"
-                  value={qty}
-                  min={1}
-                  max={selectedVariant?.stock || 1}
-                  onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  id="qty-input"
-                  readOnly
-                />
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
+              <div className="flex gap-3">
                 <button
-                  onClick={() => setQty(Math.min(selectedVariant?.stock || 99, qty + 1))}
-                  id="qty-plus"
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="flex-1 py-4 px-6 bg-[#0E0E0E] hover:bg-[#222] text-[#F5F2EB] font-semibold text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl flex items-center justify-center gap-2"
                 >
-                  +
+                  <ShoppingBag size={16} />
+                  <span>Add to Bag</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="flex-1 py-4 px-6 bg-[#C9A96E] hover:bg-[#b5955b] text-black font-semibold text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl text-center"
+                >
+                  Buy Now
                 </button>
               </div>
 
+              {/* Direct WhatsApp Order Button */}
               <button
-                className={`btn btn-primary ${addingToCart ? 'btn-loading' : ''}`}
-                style={{ flex: 1 }}
-                onClick={handleAddToCart}
-                disabled={!inStock || addingToCart}
-                id="add-to-cart-btn"
+                type="button"
+                onClick={handleWhatsAppOrder}
+                className="w-full py-3.5 px-6 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-xs uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
               >
-                <ShoppingBag size={15} />
-                {addingToCart ? 'Adding...' : inStock ? 'Add to Bag' : 'Out of Stock'}
+                <MessageCircle size={17} />
+                <span>Order via WhatsApp (Instant DM Booking)</span>
               </button>
             </div>
 
-            {/* Wishlist + Share */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.75rem' }}>
-              <button
-                className="btn btn-outline"
-                style={{ flex: 1 }}
-                onClick={() => {
-                  if (!isAuthenticated) { navigate('/login'); return; }
-                  toggleWishlist(product.id);
-                }}
-                id="wishlist-btn"
-              >
-                <Heart size={15} style={{ fill: wishlisted ? '#c0392b' : 'none', stroke: wishlisted ? '#c0392b' : 'currentColor' }} />
-                {wishlisted ? 'Wishlisted' : 'Wishlist'}
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={handleShare}
-                id="share-btn"
-                style={{ paddingInline: '1rem' }}
-              >
-                <Share2 size={15} />
-              </button>
-            </div>
-
-            {/* Delivery info */}
-            <div style={{ border: '1px solid var(--color-border)', padding: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.875rem' }}>
-                <Truck size={16} style={{ flexShrink: 0, color: 'var(--color-text-muted)', marginTop: '2px' }} />
-                <div>
-                  <p style={{ fontSize: '0.8rem', fontWeight: 500, marginBottom: '0.2rem' }}>Free Shipping on orders above ₹999</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Estimated delivery: 3–7 business days</p>
-                </div>
+            {/* Trust Assurance Strip */}
+            <div className="grid grid-cols-3 gap-3 p-4 rounded-xl bg-white border border-[#EBE7DF] text-center">
+              <div className="flex flex-col items-center">
+                <Truck size={18} className="text-[#947A46] mb-1" />
+                <span className="text-[11px] font-bold text-neutral-900">Pan-India Express</span>
+                <span className="text-[10px] text-neutral-500">Ships in 24-48h</span>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.875rem' }}>
-                <RotateCcw size={16} style={{ flexShrink: 0, color: 'var(--color-text-muted)', marginTop: '2px' }} />
-                <div>
-                  <p style={{ fontSize: '0.8rem', fontWeight: 500, marginBottom: '0.2rem' }}>7-Day Easy Returns</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>No questions asked</p>
-                </div>
+              <div className="flex flex-col items-center">
+                <Scissors size={18} className="text-[#947A46] mb-1" />
+                <span className="text-[11px] font-bold text-neutral-900">Custom Fitting</span>
+                <span className="text-[10px] text-neutral-500">Made-to-measure</span>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <Shield size={16} style={{ flexShrink: 0, color: 'var(--color-text-muted)', marginTop: '2px' }} />
-                <div>
-                  <p style={{ fontSize: '0.8rem', fontWeight: 500, marginBottom: '0.2rem' }}>Secure Payments</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>UPI, Cards, Net Banking, COD</p>
-                </div>
+              <div className="flex flex-col items-center">
+                <ShieldCheck size={18} className="text-[#947A46] mb-1" />
+                <span className="text-[11px] font-bold text-neutral-900">Surat Flagship</span>
+                <span className="text-[10px] text-neutral-500">100% Authentic</span>
               </div>
             </div>
 
-            {/* Expandable sections */}
-            {[
-              { key: 'description', label: 'Description', content: product.description },
-              { key: 'fabric', label: 'Fabric & Care', content: [product.fabricDetails, product.careInstructions].filter(Boolean).join('\n') },
-              { key: 'returns', label: 'Returns & Exchanges', content: 'We accept returns within 7 days of delivery. Items must be unworn, unwashed and in original packaging.\n\nFor exchange requests, please contact us on WhatsApp or email within 7 days.' },
-            ].filter((s) => s.content).map((section) => (
-              <div key={section.key} style={{ borderTop: '1px solid var(--color-border)' }}>
+            {/* Information Tabs */}
+            <div className="pt-4 border-t border-[#EBE7DF]">
+              <div className="flex border-b border-[#EBE7DF] mb-4">
                 <button
-                  onClick={() => toggleSection(section.key)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1rem 0',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                  }}
-                  id={`expand-${section.key}`}
+                  onClick={() => setActiveTab('details')}
+                  className={`pb-2 text-xs font-bold uppercase tracking-wider mr-6 transition-colors border-b-2 -mb-px ${
+                    activeTab === 'details' ? 'border-[#947A46] text-[#947A46]' : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                  }`}
                 >
-                  {section.label}
-                  <ChevronDown
-                    size={14}
-                    style={{ transform: expandedSection === section.key ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                  />
+                  Craft & Details
                 </button>
-                {expandedSection === section.key && (
-                  <div style={{ paddingBottom: '1rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-                    {section.content}
+                <button
+                  onClick={() => setActiveTab('shipping')}
+                  className={`pb-2 text-xs font-bold uppercase tracking-wider mr-6 transition-colors border-b-2 -mb-px ${
+                    activeTab === 'shipping' ? 'border-[#947A46] text-[#947A46]' : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  Delivery & Boutique
+                </button>
+                <button
+                  onClick={() => setActiveTab('reviews')}
+                  className={`pb-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 -mb-px ${
+                    activeTab === 'reviews' ? 'border-[#947A46] text-[#947A46]' : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  Patron Reviews ({product.reviewCount})
+                </button>
+              </div>
+
+              {activeTab === 'details' && (
+                <div className="space-y-3 text-xs text-neutral-600 leading-relaxed animate-fade-in">
+                  <p>{product.description}</p>
+                  <ul className="list-disc pl-4 space-y-1 text-neutral-700">
+                    {product.details.map((d: string, i: number) => (
+                      <li key={i}>{d}</li>
+                    ))}
+                  </ul>
+                  <p className="pt-2 text-neutral-500 italic">Care: {product.care}</p>
+                </div>
+              )}
+
+              {activeTab === 'shipping' && (
+                <div className="space-y-3 text-xs text-neutral-600 leading-relaxed animate-fade-in">
+                  <p><strong>Insured Pan-India Courier:</strong> Dispatched within 24 to 48 hours via Blue Dart, DTDC, or Delhivery with real-time SMS tracking.</p>
+                  <p><strong>In-Store Trial & Pickup:</strong> You can also choose to collect and trial this outfit directly at our Surat store: <em>{STORE_INFO.address}</em>.</p>
+                  <p><strong>Alteration Support:</strong> Complimentary alterations available within 7 days of delivery.</p>
+                </div>
+              )}
+
+              {activeTab === 'reviews' && (
+                <div className="space-y-4 text-xs animate-fade-in">
+                  <div className="p-4 rounded-lg bg-white border border-[#EBE7DF]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-neutral-900">Tanvi R. • Surat</span>
+                      <span className="text-amber-500">★★★★★</span>
+                    </div>
+                    <p className="text-neutral-600">"Wore this to my sister's reception. Got non-stop compliments all night! The fabric feels rich and heavy, yet comfortable to dance in."</p>
                   </div>
-                )}
-              </div>
-            ))}
+                  <div className="p-4 rounded-lg bg-white border border-[#EBE7DF]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-neutral-900">Ananya M. • Mumbai</span>
+                      <span className="text-amber-500">★★★★★</span>
+                    </div>
+                    <p className="text-neutral-600">"Prompt WhatsApp communication and exact custom stitching as promised. Super impressed by Kuhuu Fashion!"</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Reviews section */}
-        {product.reviews && product.reviews.length > 0 && (
-          <div style={{ marginTop: '4rem' }}>
-            <h2 className="text-display" style={{ fontSize: '1.5rem', fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
-              Customer Reviews
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
-              {product.reviews.map((review: { id: string; rating: number; title?: string; content: string; createdAt: string; user: { firstName: string; lastName: string; avatar?: string } }) => (
-                <div key={review.id} style={{ border: '1px solid var(--color-border)', padding: '1.25rem' }} id={`review-${review.id}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                    <div className="stars">
-                      {[1,2,3,4,5].map((s) => (
-                        <Star key={s} size={12} style={{ fill: s <= review.rating ? '#c9a96e' : 'none', stroke: '#c9a96e' }} />
-                      ))}
-                    </div>
-                  </div>
-                  {review.title && (
-                    <p style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.375rem' }}>{review.title}</p>
-                  )}
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
-                    {review.content}
-                  </p>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                    — {review.user.firstName} {review.user.lastName[0]}.
-                    <span style={{ marginLeft: '0.5rem' }}>
-                      {new Date(review.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                    </span>
-                  </p>
-                </div>
-              ))}
+        {/* Related Outfits */}
+        <div className="mt-24 pt-12 border-t border-[#EBE7DF]">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#947A46] block mb-1">Complete The Look</span>
+              <h2 className="font-serif text-2xl sm:text-3xl text-neutral-900 font-normal">Complementary Creations</h2>
             </div>
+            <Link to="/shop" className="text-xs uppercase tracking-widest font-semibold text-neutral-900 hover:text-[#947A46]">
+              View All →
+            </Link>
           </div>
-        )}
 
-        {/* Related products */}
-        {relatedProducts.length > 0 && (
-          <div style={{ marginTop: '5rem' }}>
-            <div className="section-heading" style={{ textAlign: 'left', marginBottom: '2rem' }}>
-              <h2 style={{ textAlign: 'left', fontSize: '1.5rem' }}>You May Also Like</h2>
-              <div className="divider" style={{ margin: '0.75rem 0 0' }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
-              {relatedProducts.slice(0, 6).map((p: {
-                id: string;
-                name: string;
-                slug: string;
-                images: ProductImage[];
-                variants: Variant[];
-                averageRating?: number;
-                reviewCount?: number;
-                isNew?: boolean;
-              }) => (
-                <ProductCard key={p.id} {...p} />
-              ))}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {relatedProducts.map((p) => (
+              <ProductCard key={p.id} {...p} />
+            ))}
           </div>
-        )}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
