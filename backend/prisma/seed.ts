@@ -181,7 +181,9 @@ async function main() {
     data: {
       title: 'NEW COLLECTION',
       subtitle: 'Elevate Your Everyday Style',
-      image: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=1600&q=80',
+      imageData: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
+      thumbnail: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
+      mimeType: 'image/gif',
       link: '/shop',
       buttonText: 'SHOP NOW',
       isActive: true,
